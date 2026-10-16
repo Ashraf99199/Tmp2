@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>بريد مؤقت</title>
+<meta name="description" content="إيميل مؤقت مجاني تستقبل عليه رسائل التفعيل">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="بريد مؤقت">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f3f5f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1420" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<style>
+/* تخطيط: عمود واحد بعرض الجوال — بطاقة العنوان فوق مثل ظرف، وتحتها صندوق الوارد */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#141a26; --muted:#5f6878; --line:#dfe3ea;
+  --accent:#1f4fd1; --accent-ink:#ffffff; --accent-soft:#e6ecfb; --stamp:#d2452b; --danger:#c22f2f;
+  --font-body:"IBM Plex Sans Arabic", "Geeza Pro", "Segoe UI", Tahoma, sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --r:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1420; --surface:#171e2d; --ink:#e9edf5; --muted:#98a2b5; --line:#263043;
+    --accent:#7a9dff; --accent-ink:#0b1020; --accent-soft:#1c2742; --stamp:#ff7a5c; --danger:#ff6b6b;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font-body); font-size:16px; line-height:1.6;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:max(24px, env(safe-area-inset-bottom,0px));
+  -webkit-tap-highlight-color:transparent;
+}
+.wrap{
+  max-width:560px; margin:0 auto;
+  padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px));
+  padding-block:16px; display:flex; flex-direction:column; gap:20px;
+}
+header{display:flex; align-items:center; justify-content:space-between; gap:12px}
+h1{margin:0; font-size:1.35rem; font-weight:700; letter-spacing:-.01em}
+.live{display:flex; align-items:center; gap:6px; font-size:.8rem; color:var(--muted)}
+.dot{width:8px; height:8px; border-radius:50%; background:#22a55b; box-shadow:0 0 0 0 rgba(34,165,91,.5); animation:pulse 2s infinite}
+.live.off .dot{background:var(--muted); animation:none}
+@keyframes pulse{70%{box-shadow:0 0 0 6px rgba(34,165,91,0)}100%{box-shadow:0 0 0 0 rgba(34,165,91,0)}}
+
+/* بطاقة العنوان: حافة بريد جوي */
+.envelope{
+  position:relative; background:var(--surface); border-radius:var(--r); padding:22px 18px 18px;
+  border:1px solid var(--line); overflow:hidden;
+}
+.envelope::before{
+  content:""; position:absolute; inset:0 0 auto; height:6px;
+  background:repeating-linear-gradient(-45deg, var(--stamp) 0 10px, transparent 10px 20px, var(--accent) 20px 30px, transparent 30px 40px);
+}
+.label{font-size:.75rem; color:var(--muted); letter-spacing:.04em; margin:0 0 6px}
+.address{
+  direction:ltr; text-align:center; font-family:var(--font-mono); font-size:1.08rem; word-break:break-all;
+  background:var(--accent-soft); border-radius:10px; padding:14px 12px; margin:0; user-select:all; -webkit-user-select:all;
+  min-height:3.2em; display:flex; align-items:center; justify-content:center;
+}
+.address.loading{color:var(--muted); font-family:var(--font-body); font-size:.95rem}
+.actions{display:grid; grid-template-columns:1fr auto; gap:10px; margin-top:12px}
+button{font:inherit; cursor:pointer; border:0; border-radius:10px; padding:12px 16px; font-weight:600}
+button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+button:disabled{opacity:.5; cursor:default}
+.primary{background:var(--accent); color:var(--accent-ink)}
+.ghost{background:transparent; color:var(--ink); border:1px solid var(--line)}
+.note{font-size:.8rem; color:var(--muted); margin:10px 0 0}
+
+/* صندوق الوارد */
+.inbox-head{display:flex; align-items:baseline; justify-content:space-between}
+h2{margin:0; font-size:1rem; font-weight:600}
+.count{font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums}
+.list{list-style:none; margin:0; padding:0; background:var(--surface); border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+.item{display:grid; grid-template-columns:1fr auto; gap:2px 10px; padding:14px 16px; border-top:1px solid var(--line); cursor:pointer; text-align:start; width:100%; background:none; color:inherit; font-weight:400; border-radius:0}
+.item:first-child{border-top:0}
+.item:hover{background:var(--accent-soft)}
+.from{font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.time{font-size:.75rem; color:var(--muted); white-space:nowrap}
+.subj{grid-column:1/-1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.92rem}
+.item.unread .subj{font-weight:600}
+.item.unread .from::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--accent); margin-inline-end:7px; vertical-align:middle}
+.intro{grid-column:1/-1; font-size:.82rem; color:var(--muted); min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
+.empty{padding:36px 20px; text-align:center; color:var(--muted)}
+.empty strong{display:block; color:var(--ink); font-weight:600; margin-bottom:4px}
+.error{background:color-mix(in srgb, var(--danger) 12%, var(--surface)); color:var(--danger); border-radius:10px; padding:12px 14px; font-size:.9rem}
+footer{text-align:center; font-size:.78rem; color:var(--muted)}
+footer a{color:inherit}
+
+/* عرض الرسالة */
+.sheet{position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; z-index:20;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px)}
+.sheet-bar{display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding-left:max(12px, env(safe-area-inset-left,0px)); padding-right:max(12px, env(safe-area-inset-right,0px)); padding-block:10px;
+  border-bottom:1px solid var(--line); background:var(--surface)}
+.sheet-meta{padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px)); padding-block:14px; background:var(--surface); border-bottom:1px solid var(--line)}
+.sheet-meta h3{margin:0 0 6px; font-size:1.1rem; text-wrap:balance}
+.sheet-meta p{margin:0; font-size:.85rem; color:var(--muted)}
+.sheet-meta .addr{direction:ltr; display:inline-block; font-family:var(--font-mono); font-size:.78rem}
+.danger{color:var(--danger)}
+iframe{flex:1; width:100%; border:0; background:#fff}
+
+.toast{position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
+  background:var(--ink); color:var(--bg); padding:10px 18px; border-radius:999px; font-size:.9rem; z-index:30}
+@media (prefers-reduced-motion: reduce){.dot{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>بريد مؤقت</h1>
+    <div class="live" id="live"><span class="dot"></span><span id="liveText">يتحدّث تلقائياً</span></div>
+  </header>
+
+  <section class="envelope">
+    <p class="label">عنوانك الحالي</p>
+    <p class="address loading" id="address">جاري تجهيز الإيميل…</p>
+    <div class="actions">
+      <button class="primary" id="copyBtn" disabled>انسخ الإيميل</button>
+      <button class="ghost" id="newBtn" disabled>إيميل جديد</button>
+    </div>
+    <p class="note">استخدمه للتسجيل في المواقع. الرسائل توصل هنا خلال ثواني.</p>
+  </section>
+
+  <div class="error" id="error" hidden></div>
+
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <div class="inbox-head">
+      <h2>صندوق الوارد</h2>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="list" id="list">
+      <div class="empty"><strong>ما وصلت رسائل للحين</strong>أي رسالة ترسل لعنوانك تظهر هنا تلقائياً.</div>
+    </div>
+  </section>
+
+  <footer>الرسائل مقدّمة من <a href="https://mail.tm" target="_blank" rel="noopener">Mail.tm</a></footer>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-bar">
+    <button class="ghost" id="backBtn">رجوع</button>
+    <button class="ghost danger" id="delBtn">حذف</button>
+  </div>
+  <div class="sheet-meta">
+    <h3 id="mSubj"></h3>
+    <p>من: <span id="mFrom"></span> <span class="addr" id="mAddr"></span></p>
+    <p id="mDate"></p>
+  </div>
+  <iframe id="mBody" sandbox="allow-popups allow-popups-to-escape-sandbox" title="محتوى الرسالة"></iframe>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const API = "https://api.mail.tm";
+const KEY = "tempmail_account";
+const $ = id => document.getElementById(id);
+
+let account = load();   // {id, address, password}
+let token = null;
+let messages = [];
+let openId = null;
+let timer = null;
+let busy = false;
+
+function load(){ try { return JSON.parse(localStorage.getItem(KEY)) } catch { return null } }
+function save(a){ try { localStorage.setItem(KEY, JSON.stringify(a)) } catch {} }
+
+async function api(path, { method = "GET", body, auth = true } = {}){
+  const headers = { Accept: "application/ld+json" };
+  if (body) headers["Content-Type"] = "application/json";
+  if (auth && token) headers.Authorization = "Bearer " + token;
+  const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  if (!res.ok){
+    const err = new Error(res.status === 429 ? "طلبات كثيرة، انتظر شوي وجرّب" : "خطأ من السيرفر (" + res.status + ")");
+    err.status = res.status; throw err;
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+function rand(n){
+  const c = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const a = crypto.getRandomValues(new Uint8Array(n));
+  return Array.from(a, x => c[x % c.length]).join("");
+}
+
+async function createAddress(){
+  setBusy(true);
+  try {
+    if (account && token) { api("/accounts/" + account.id, { method: "DELETE" }).catch(() => {}); }
+    const domains = (await api("/domains", { auth: false }))["hydra:member"].filter(d => d.isActive);
+    if (!domains.length) throw new Error("ما فيه دومينات متاحة حالياً، جرّب بعد شوي");
+    const address = rand(10) + "@" + domains[0].domain;
+    const password = rand(16);
+    const acc = await api("/accounts", { method: "POST", body: { address, password }, auth: false });
+    token = (await api("/token", { method: "POST", body: { address, password }, auth: false })).token;
+    account = { id: acc.id, address: acc.address, password };
+    save(account);
+    messages = [];
+    renderList();
+    hideError();
+  } catch (e) { showError(e.message) }
+  finally { setBusy(false); renderAddress(); }
+}
+
+async function login(){
+  if (!account) return createAddress();
+  try {
+    token = (await api("/token", { method: "POST", body: { address: account.address, password: account.password }, auth: false })).token;
+    renderAddress();
+  } catch { await createAddress() }
+}
+
+async function refresh(){
+  if (!token) return;
+  try {
+    messages = (await api("/messages"))["hydra:member"];
+    renderList();
+    hideError();
+  } catch (e) {
+    if (e.status === 401) await login();
+  }
+}
+
+function startPolling(){
+  stopPolling();
+  refresh();
+  timer = setInterval(refresh, 5000);
+  $("live").classList.remove("off"); $("liveText").textContent = "يتحدّث تلقائياً";
+}
+function stopPolling(){
+  clearInterval(timer); timer = null;
+  $("live").classList.add("off"); $("liveText").textContent = "متوقف";
+}
+
+/* ---------- العرض ---------- */
+function renderAddress(){
+  const el = $("address");
+  if (account && !busy){ el.textContent = account.address; el.classList.remove("loading") }
+  else { el.textContent = "جاري تجهيز الإيميل…"; el.classList.add("loading") }
+  $("copyBtn").disabled = !account || busy;
+  $("newBtn").disabled = busy;
+}
+function setBusy(b){ busy = b; renderAddress() }
+
+const rtf = new Intl.RelativeTimeFormat("ar", { numeric: "auto" });
+function ago(iso){
+  const s = Math.round((new Date(iso) - Date.now()) / 1000);
+  if (s > -60) return "الحين";
+  if (s > -3600) return rtf.format(Math.round(s / 60), "minute");
+  if (s > -86400) return rtf.format(Math.round(s / 3600), "hour");
+  return rtf.format(Math.round(s / 86400), "day");
+}
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])) }
+function sender(f){ return f?.name || f?.address || "مجهول" }
+
+function renderList(){
+  $("count").textContent = messages.length ? messages.length + " رسالة" : "";
+  if (!messages.length){
+    $("list").innerHTML = '<div class="empty"><strong>ما وصلت رسائل للحين</strong>أي رسالة ترسل لعنوانك تظهر هنا تلقائياً.</div>';
+    return;
+  }
+  $("list").innerHTML = messages.map(m => `
+    <button class="item ${m.seen ? "" : "unread"}" data-id="${esc(m.id)}">
+      <span class="from">${esc(sender(m.from))}</span>
+      <span class="time">${ago(m.createdAt)}</span>
+      <span class="subj">${esc(m.subject || "(بدون عنوان)")}</span>
+      ${m.intro ? `<span class="intro">${esc(m.intro)}</span>` : ""}
+    </button>`).join("");
+}
+
+async function openMessage(id){
+  openId = id;
+  const sum = messages.find(m => m.id === id);
+  $("mSubj").textContent = sum?.subject || "(بدون عنوان)";
+  $("mFrom").textContent = sender(sum?.from);
+  $("mAddr").textContent = sum?.from?.address || "";
+  $("mDate").textContent = sum ? new Date(sum.createdAt).toLocaleString("ar-SA-u-nu-latn") : "";
+  $("mBody").srcdoc = frame('<p style="color:#888">جاري التحميل…</p>');
+  $("sheet").hidden = false;
+  try {
+    const m = await api("/messages/" + id);
+    const html = (m.html || []).join("");
+    $("mBody").srcdoc = frame(html || '<pre style="white-space:pre-wrap;font:15px/1.6 -apple-system,sans-serif">' + esc(m.text) + "</pre>");
+    if (sum) sum.seen = true;
+    renderList();
+  } catch (e) {
+    $("mBody").srcdoc = frame('<p style="color:#c22f2f">ما قدرت أفتح الرسالة: ' + esc(e.message) + "</p>");
+  }
+}
+// الرسالة تنعرض داخل إطار معزول بدون جافاسكربت، والروابط تفتح في تبويب جديد
+function frame(body){
+  return '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank">'
+       + '<style>body{margin:0;padding:14px;font-family:-apple-system,"Segoe UI",sans-serif;word-wrap:break-word;color:#141a26;background:#fff}img{max-width:100%;height:auto}</style>'
+       + body;
+}
+function closeMessage(){ $("sheet").hidden = true; openId = null; $("mBody").srcdoc = "" }
+
+async function deleteMessage(){
+  if (!openId) return;
+  const id = openId;
+  closeMessage();
+  messages = messages.filter(m => m.id !== id);
+  renderList();
+  try { await api("/messages/" + id, { method: "DELETE" }); toast("انحذفت الرسالة") }
+  catch (e) { showError(e.message) }
+}
+
+function showError(msg){ $("error").textContent = msg; $("error").hidden = false }
+function hideError(){ $("error").hidden = true }
+
+let toastT;
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 1800);
+}
+
+async function copyAddress(){
+  if (!account) return;
+  try { await navigator.clipboard.writeText(account.address); toast("تم النسخ") }
+  catch {
+    const r = document.createRange(); r.selectNodeContents($("address"));
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    toast("انسخه من التحديد");
+  }
+}
+
+/* ---------- الأحداث ---------- */
+$("copyBtn").addEventListener("click", copyAddress);
+$("newBtn").addEventListener("click", async () => { await createAddress(); toast("جهّزنا لك إيميل جديد") });
+$("list").addEventListener("click", e => { const b = e.target.closest(".item"); if (b) openMessage(b.dataset.id) });
+$("backBtn").addEventListener("click", closeMessage);
+$("delBtn").addEventListener("click", deleteMessage);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("sheet").hidden) closeMessage() });
+document.addEventListener("visibilitychange", () => document.hidden ? stopPolling() : startPolling());
+
+(async () => {
+  renderAddress();
+  await login();
+  startPolling();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "بريد مؤقت",
+  "short_name": "بريد مؤقت",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f8",
+  "theme_color": "#1f4fd1",
+  "icons": [{ "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }]
+}
