@@ -145,7 +145,7 @@ iframe{flex:1; width:100%; border:0; background:#fff}
     </div>
   </section>
 
-  <footer>الرسائل مقدّمة من <a href="https://mail.tm" target="_blank" rel="noopener">Mail.tm</a></footer>
+  <footer>الرسائل مقدّمة من <a id="credit" href="https://mail.tm" target="_blank" rel="noopener">Mail.tm</a></footer>
 </div>
 
 <div class="sheet" id="sheet" hidden>
@@ -164,11 +164,15 @@ iframe{flex:1; width:100%; border:0; background:#fff}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const API = "https://api.mail.tm";
+// خدمتين بنفس الـ API: لو الأولى ما اشتغلت نجرّب الثانية
+const PROVIDERS = [
+  { api: "https://api.mail.tm", site: "https://mail.tm", name: "Mail.tm" },
+  { api: "https://api.mail.gw", site: "https://mail.gw", name: "Mail.gw" }
+];
 const KEY = "tempmail_account";
 const $ = id => document.getElementById(id);
 
-let account = load();   // {id, address, password}
+let account = load();   // {id, address, password, api}
 let token = null;
 let messages = [];
 let openId = null;
@@ -178,13 +182,20 @@ let busy = false;
 function load(){ try { return JSON.parse(localStorage.getItem(KEY)) } catch { return null } }
 function save(a){ try { localStorage.setItem(KEY, JSON.stringify(a)) } catch {} }
 
-async function api(path, { method = "GET", body, auth = true } = {}){
+async function api(path, { method = "GET", body, auth = true, base } = {}){
+  base = base || account?.api || PROVIDERS[0].api;
   const headers = { Accept: "application/ld+json" };
   if (body) headers["Content-Type"] = "application/json";
   if (auth && token) headers.Authorization = "Bearer " + token;
-  const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  let res;
+  try {
+    res = await fetch(base + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  } catch {
+    const err = new Error("ما قدرت أتصل بخدمة البريد. جرّب تطفي مانع الإعلانات أو الـ VPN، أو بدّل بين الواي فاي وبيانات الجوال.");
+    err.network = true; throw err;
+  }
   if (!res.ok){
-    const err = new Error(res.status === 429 ? "طلبات كثيرة، انتظر شوي وجرّب" : "خطأ من السيرفر (" + res.status + ")");
+    const err = new Error(res.status === 429 ? "طلبات كثيرة، انتظر شوي وجرّب" : "خطأ من خدمة البريد (" + res.status + ")");
     err.status = res.status; throw err;
   }
   return res.status === 204 ? null : res.json();
@@ -196,22 +207,36 @@ function rand(n){
   return Array.from(a, x => c[x % c.length]).join("");
 }
 
+async function createOn(base){
+  const domains = (await api("/domains", { auth: false, base }))["hydra:member"].filter(d => d.isActive);
+  if (!domains.length) throw new Error("ما فيه دومينات متاحة حالياً");
+  const address = rand(10) + "@" + domains[0].domain;
+  const password = rand(16);
+  const acc = await api("/accounts", { method: "POST", body: { address, password }, auth: false, base });
+  const t = (await api("/token", { method: "POST", body: { address, password }, auth: false, base })).token;
+  return { account: { id: acc.id, address: acc.address, password, api: base }, token: t };
+}
+
 async function createAddress(){
   setBusy(true);
   try {
     if (account && token) { api("/accounts/" + account.id, { method: "DELETE" }).catch(() => {}); }
-    const domains = (await api("/domains", { auth: false }))["hydra:member"].filter(d => d.isActive);
-    if (!domains.length) throw new Error("ما فيه دومينات متاحة حالياً، جرّب بعد شوي");
-    const address = rand(10) + "@" + domains[0].domain;
-    const password = rand(16);
-    const acc = await api("/accounts", { method: "POST", body: { address, password }, auth: false });
-    token = (await api("/token", { method: "POST", body: { address, password }, auth: false })).token;
-    account = { id: acc.id, address: acc.address, password };
+    token = null;
+    let lastErr;
+    for (const p of PROVIDERS){
+      try {
+        const r = await createOn(p.api);
+        account = r.account; token = r.token;
+        break;
+      } catch (e) { lastErr = e }
+    }
+    if (!token || account?.api == null) throw lastErr;
     save(account);
     messages = [];
     renderList();
+    renderCredit();
     hideError();
-  } catch (e) { showError(e.message) }
+  } catch (e) { token = null; showError(e.message) }
   finally { setBusy(false); renderAddress(); }
 }
 
@@ -220,7 +245,8 @@ async function login(){
   try {
     token = (await api("/token", { method: "POST", body: { address: account.address, password: account.password }, auth: false })).token;
     renderAddress();
-  } catch { await createAddress() }
+    renderCredit();
+  } catch { account = null; token = null; await createAddress() }
 }
 
 async function refresh(){
@@ -232,6 +258,11 @@ async function refresh(){
   } catch (e) {
     if (e.status === 401) await login();
   }
+}
+
+function renderCredit(){
+  const p = PROVIDERS.find(x => x.api === account?.api) || PROVIDERS[0];
+  const a = $("credit"); a.href = p.site; a.textContent = p.name;
 }
 
 function startPolling(){
@@ -248,7 +279,7 @@ function stopPolling(){
 /* ---------- العرض ---------- */
 function renderAddress(){
   const el = $("address");
-  if (account && !busy){ el.textContent = account.address; el.classList.remove("loading") }
+  if (account && token && !busy){ el.textContent = account.address; el.classList.remove("loading") }
   else { el.textContent = "جاري تجهيز الإيميل…"; el.classList.add("loading") }
   $("copyBtn").disabled = !account || busy;
   $("newBtn").disabled = busy;
